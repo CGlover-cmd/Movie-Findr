@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Findr</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <main id="setup-screen" class="screen active">
+        <h1>Movie Findr</h1>
+        <p>Connect the starting movie to the target movie using the cast!</p>
+        
+        <div class="setup-container">
+            <div class="movie-setup-col">
+                <h2>Start</h2>
+                <div id="start-movie-display" class="movie-placeholder poster-rounded">
+                    </div>
+                <button id="redraw-start-btn" class="redraw-btn">I don't know this movie</button>
+            </div>
+
+            <div class="movie-setup-col">
+                <h2>Target</h2>
+                <div id="target-movie-display" class="movie-placeholder poster-rounded">
+                    </div>
+                <button id="redraw-target-btn" class="redraw-btn">I don't know this movie</button>
+            </div>
+        </div>
+
+        <button id="start-game-btn" class="primary-btn" disabled>Loading Movies...</button>
+    </main>
+
+    <main id="game-board" class="screen hidden">
+        <header id="game-header">
+            <div class="header-stat">Time: <span id="timer-display">00:00</span></div>
+            <div class="header-stat">Steps: <span id="step-display">0</span></div>
+            <div class="header-target">Goal: <span id="target-title-display">...</span></div>
+        </header>
+
+        <div id="vertical-tree">
+            </div>
+    </main>
+
+    </body>
+</html>
