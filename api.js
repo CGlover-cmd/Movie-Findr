@@ -1,18 +1,18 @@
 // api.js
 
-// TODO: Replace with your actual TMDb API Key
-const API_KEY = 'YOUR_TMDB_API_KEY_HERE';
-const BASE_URL = 'https://api.themoviedb.org/3';
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200'; // w200 is a good optimized size for tiles
+// TODO: Paste your Google Cloud Endpoint URL inside the quotes below
+const PROXY_URL = 'https://tmdbproxy-56683831058.us-central1.run.app/';
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200'; 
 
 /**
- * Helper function to handle standard fetch requests to TMDb
+ * Helper function to handle standard fetch requests to your Google Cloud Middleman
  */
-async function fetchFromTMDb(endpoint, params = '') {
+async function fetchFromProxy(endpoint) {
     try {
-        const response = await fetch(`${BASE_URL}${endpoint}?api_key=${API_KEY}&language=en-US${params}`);
+        // We pass the desired TMDb path to Google as a query parameter
+        const response = await fetch(`${PROXY_URL}?endpoint=${encodeURIComponent(endpoint)}`);
         if (!response.ok) {
-            throw new Error(`TMDb API Error: ${response.status}`);
+            throw new Error(`Proxy Error: ${response.status}`);
         }
         return await response.json();
     } catch (error) {
@@ -25,21 +25,19 @@ async function fetchFromTMDb(endpoint, params = '') {
  * Returns the full image URL or a placeholder if no image exists
  */
 export function getImageUrl(path) {
-    if (!path) return 'https://via.placeholder.com/200x300?text=No+Image'; // Fallback image
+    if (!path) return 'https://via.placeholder.com/200x300?text=No+Image';
     return `${IMAGE_BASE_URL}${path}`;
 }
 
 /**
- * Fetches a random page of popular movies to simulate our "Top 1000" list
+ * Fetches a random page of popular movies
  */
 export async function getRandomMovies(count = 2) {
-    // TMDb allows page 1-500. Let's pick a random page from the top 50 to ensure recognizable movies.
     const randomPage = Math.floor(Math.random() * 50) + 1;
-    const data = await fetchFromTMDb('/movie/popular', `&page=${randomPage}`);
+    const data = await fetchFromProxy(`/movie/popular&page=${randomPage}`);
     
     if (!data || !data.results) return [];
 
-    // Shuffle the results and grab the requested amount
     const shuffled = data.results.sort(() => 0.5 - Math.random());
     return shuffled.slice(0, count).map(movie => ({
         id: movie.id,
@@ -49,13 +47,12 @@ export async function getRandomMovies(count = 2) {
 }
 
 /**
- * Fetches the cast and crew for a specific movie ID
+ * Fetches the cast for a specific movie ID
  */
 export async function getMovieCast(movieId) {
-    const data = await fetchFromTMDb(`/movie/${movieId}/credits`);
+    const data = await fetchFromProxy(`/movie/${movieId}/credits`);
     if (!data || !data.cast) return [];
 
-    // Return the top 15 billed actors to keep the UI clean
     return data.cast.slice(0, 15).map(person => ({
         id: person.id,
         name: person.name,
@@ -65,13 +62,12 @@ export async function getMovieCast(movieId) {
 }
 
 /**
- * Fetches the filmography (movies) for a specific person ID
+ * Fetches the filmography for a specific person ID
  */
 export async function getPersonMovies(personId) {
-    const data = await fetchFromTMDb(`/person/${personId}/movie_credits`);
+    const data = await fetchFromProxy(`/person/${personId}/movie_credits`);
     if (!data || !data.cast) return [];
 
-    // Sort by popularity to show their most known movies first, limit to 15
     const sortedMovies = data.cast.sort((a, b) => b.popularity - a.popularity);
     
     return sortedMovies.slice(0, 15).map(movie => ({
