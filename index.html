@@ -35,11 +35,19 @@
         <header id="game-header">
             <div class="header-stat">Time: <span id="timer-display">00:00</span></div>
             <div class="header-stat">Steps: <span id="step-display">0</span></div>
-            <div class="header-target">Goal: <span id="target-title-display">...</span></div>
+
+            <!-- FIX #5: Goal section now includes a small poster thumbnail
+                 alongside the movie title. The <img> src is populated by ui.js
+                 when the game starts. display:none in CSS until src is set. -->
+            <div class="header-target">
+                Goal:
+                <img id="goal-poster-thumbnail" src="" alt="Goal movie poster">
+                <span id="target-title-display">...</span>
+            </div>
         </header>
 
-<div id="vertical-tree">
-            </div>
+        <div id="vertical-tree">
+        </div>
     </main>
 
     <script type="module" src="game.js"></script>
