@@ -25,11 +25,16 @@ body {
 /* --- Screen Management --- */
 .screen {
     width: 100%;
-    max-width: 800px;
     padding: 2rem 1rem;
     display: flex;
     flex-direction: column;
     align-items: center;
+}
+
+/* FIX #1: Setup screen keeps a reasonable centered width for aesthetics.
+   The game board (below) overrides this to go full-width. */
+#setup-screen {
+    max-width: 800px;
 }
 
 .hidden {
@@ -99,12 +104,14 @@ body {
 }
 
 /* --- Game Board & Sticky Header --- */
+/* FIX #5: Header now uses a flex layout that accommodates the goal poster image
+   on the left side of the "Goal:" section. */
 #game-header {
     position: sticky;
     top: 0;
     background-color: rgba(18, 18, 18, 0.95);
     width: 100%;
-    padding: 1rem;
+    padding: 0.75rem 1.5rem;
     display: flex;
     justify-content: space-around;
     align-items: center;
@@ -116,11 +123,27 @@ body {
 }
 
 .header-target {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
     font-size: 0.9rem;
     color: #aaa;
 }
 
+/* FIX #5: Small goal poster thumbnail in the header bar */
+#goal-poster-thumbnail {
+    height: 48px;
+    width: auto;
+    border-radius: 4px;
+    object-fit: cover;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.5);
+    display: none; /* hidden until game starts and src is set */
+}
+
 /* --- Vertical Tree & Horizontal Rows --- */
+/* FIX #1: Removed the max-width cap so the game board uses the full
+   screen width. Rows are center-justified so tiles spread from the middle
+   outward rather than pinning to the left edge. */
 #vertical-tree {
     width: 100%;
     display: flex;
@@ -133,48 +156,55 @@ body {
     display: flex;
     overflow-x: auto;
     gap: 1rem;
-    padding: 1rem 0;
+    padding: 1rem 1.5rem;
     width: 100%;
+    justify-content: center; /* FIX #1: center tiles across full width */
+    flex-wrap: wrap;          /* allow wrapping on wide screens */
     /* Hide scrollbar for a cleaner look */
-    scrollbar-width: none; 
+    scrollbar-width: none;
 }
 .horizontal-row::-webkit-scrollbar {
     display: none;
 }
 
 /* --- Tile Shapes --- */
-/* --- Tile Shapes --- */
 .tile-wrapper {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
+    gap: 0.4rem;
     flex-shrink: 0;
-    width: 120px; /* Locks the wrapper to the same width as the images */
+    width: 120px;
     cursor: pointer;
     transition: opacity 0.3s ease, transform 0.2s ease;
+    /* FIX #4: ensure the name label below the image is never clipped */
+    overflow: visible;
 }
 
 .tile-wrapper:hover {
     transform: scale(1.05);
 }
 
+/* FIX #4: Actor name label — explicitly visible, wraps within tile width */
 .person-name {
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     text-align: center;
     color: #eee;
-    line-height: 1.2;
+    line-height: 1.3;
     margin: 0;
+    width: 100%;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    white-space: normal;
+    display: block; /* ensure it's never inadvertently inline or hidden */
 }
 
 .tile {
     flex-shrink: 0;
-    cursor: pointer;
-    transition: opacity 0.3s ease, transform 0.2s ease;
-}
-
-.tile:hover {
-    transform: scale(1.05);
+    /* FIX #4: removed cursor/transform from .tile so the wrapper handles
+       hover scaling — prevents a double-transform stacking bug that could
+       push the name label out of view */
+    display: block;
 }
 
 .movie-tile {
@@ -196,7 +226,7 @@ body {
 /* Interaction Classes */
 .dimmed {
     opacity: var(--dimmed-opacity);
-    pointer-events: none; /* Prevents clicking on dimmed actors */
+    pointer-events: none;
 }
 
 /* --- Win State Animation (60bpm = 1 flash per second) --- */
