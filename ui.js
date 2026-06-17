@@ -25,25 +25,39 @@ export function createHorizontalRow(items, type, clickCallback) {
     row.className = 'horizontal-row';
 
     items.forEach(item => {
-        const tile = document.createElement('img');
-        tile.className = type === 'movie' ? 'tile movie-tile' : 'tile person-tile';
-        tile.src = type === 'movie' ? item.posterPath : item.profilePath;
-        tile.alt = type === 'movie' ? item.title : item.name;
-        tile.title = type === 'movie' ? item.title : item.name;
+        // Create a wrapper to hold both the image and the text
+        const wrapper = document.createElement('div');
+        wrapper.className = 'tile-wrapper';
 
-        tile.addEventListener('click', (event) => {
-            // Prevent clicking if already dimmed
-            if (tile.classList.contains('dimmed')) return;
+        // Create the image element
+        const tileImg = document.createElement('img');
+        tileImg.className = type === 'movie' ? 'tile movie-tile' : 'tile person-tile';
+        tileImg.src = type === 'movie' ? item.posterPath : item.profilePath;
+        tileImg.alt = type === 'movie' ? item.title : item.name;
+        tileImg.title = type === 'movie' ? item.title : item.name;
+
+        wrapper.appendChild(tileImg);
+
+        // If it's a person, add their name below the image
+        if (type === 'person') {
+            const nameLabel = document.createElement('p');
+            nameLabel.className = 'person-name';
+            nameLabel.textContent = item.name;
+            wrapper.appendChild(nameLabel);
+        }
+
+        // Move the click event to the wrapper so the whole block is clickable
+        wrapper.addEventListener('click', (event) => {
+            if (wrapper.classList.contains('dimmed')) return;
             
-            dimSiblings(row, tile);
+            dimSiblings(row, wrapper);
             clickCallback(item);
         });
 
-        row.appendChild(tile);
+        row.appendChild(wrapper);
     });
 
     document.getElementById('vertical-tree').appendChild(row);
-    // Auto-scroll to the bottom as the tree grows
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
 }
 
@@ -51,7 +65,8 @@ export function createHorizontalRow(items, type, clickCallback) {
  * Dims all unselected elements in a row.
  */
 function dimSiblings(rowElement, selectedTile) {
-    const tiles = rowElement.querySelectorAll('.tile');
+    // We now look for our new 'tile-wrapper' instead of just 'tile'
+    const tiles = rowElement.querySelectorAll('.tile-wrapper');
     tiles.forEach(t => {
         if (t !== selectedTile) {
             t.classList.add('dimmed');
