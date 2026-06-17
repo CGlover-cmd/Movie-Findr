@@ -34,7 +34,7 @@ export function getImageUrl(path) {
  */
 export async function getRandomMovies(count = 2) {
     const randomPage = Math.floor(Math.random() * 50) + 1;
-    const data = await fetchFromProxy(`/movie/popular&page=${randomPage}`);
+    const data = await fetchFromProxy(`/movie/popular?page=${randomPage}`);
     
     if (!data || !data.results) return [];
 
