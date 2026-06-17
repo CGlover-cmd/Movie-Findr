@@ -1,44 +1,135 @@
 // api.js
 
-// TODO: Paste your Google Cloud Endpoint URL inside the quotes below
 const PROXY_URL = 'https://tmdbproxy-56683831058.us-central1.run.app/';
-const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200'; 
+const IMAGE_BASE_URL = 'https://image.tmdb.org/t/p/w200';
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CORE FETCH HELPER
+// ─────────────────────────────────────────────────────────────────────────────
 
 /**
- * Helper function to handle standard fetch requests to your Google Cloud Middleman
+ * Sends a request through the Google Cloud proxy.
+ * The proxy forwards the `endpoint` query param to TMDb and returns raw JSON.
  */
 async function fetchFromProxy(endpoint) {
     try {
-        // We pass the desired TMDb path to Google as a query parameter
         const response = await fetch(`${PROXY_URL}?endpoint=${encodeURIComponent(endpoint)}`);
-        if (!response.ok) {
-            throw new Error(`Proxy Error: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Proxy Error: ${response.status}`);
         return await response.json();
     } catch (error) {
-        console.error("Failed to fetch data:", error);
+        console.error('Failed to fetch data:', error);
         return null;
     }
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// IMAGE HELPER
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Returns the full image URL or a placeholder if no image exists
+ * Returns the full TMDb image URL, or a grey placeholder if no path exists.
  */
 export function getImageUrl(path) {
     if (!path) return 'https://via.placeholder.com/200x300?text=No+Image';
     return `${IMAGE_BASE_URL}${path}`;
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// GENRE LIST
+// Fetched once on load and used to build the genre pill buttons in the UI.
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Fetches a random page of popular movies.
- * FIX #3: Pages 1–5 correspond to the top ~100 most recognized films on TMDb,
- * keeping the starting/target movies familiar to most players.
- * (Previously was pages 1–50, pulling in many obscure/unknown titles.)
+ * Fetches the full list of TMDb movie genres.
+ * Returns an array of { id, name } objects.
  */
-export async function getRandomMovies(count = 2) {
-    const randomPage = Math.floor(Math.random() * 5) + 1;
-    const data = await fetchFromProxy(`/movie/popular?page=${randomPage}`);
-    
+export async function getGenreList() {
+    const data = await fetchFromProxy('/genre/movie/list');
+    if (!data || !data.genres) return [];
+    return data.genres; // e.g. [{ id: 28, name: "Action" }, ...]
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FILTER-AWARE MOVIE FETCH
+// ─────────────────────────────────────────────────────────────────────────────
+
+/**
+ * Builds a TMDb query string from the active filter state object.
+ *
+ * Filter object shape (all fields optional):
+ * {
+ *   yearMin:    number | null,   // primary_release_date.gte  (YYYY-01-01)
+ *   yearMax:    number | null,   // primary_release_date.lte  (YYYY-12-31)
+ *   genreIds:   number[],        // with_genres (comma-joined)
+ *   language:   string,          // with_original_language (ISO 639-1 code)
+ *   minRating:  number,          // vote_average.gte
+ *   sortBy:     string,          // sort_by (TMDb sort key)
+ * }
+ *
+ * When no filters are set the function falls back to /movie/popular (pages 1–5)
+ * so the experience is unchanged for users who skip the filter panel.
+ * When any filter IS set, we use /discover/movie which supports all parameters.
+ */
+function buildDiscoverParams(filters, page) {
+    const params = new URLSearchParams();
+
+    params.set('page', page);
+    params.set('sort_by', filters.sortBy || 'popularity.desc');
+
+    // Require at least 100 votes so low-count films don't skew rating filters
+    params.set('vote_count.gte', '100');
+
+    if (filters.yearMin) params.set('primary_release_date.gte', `${filters.yearMin}-01-01`);
+    if (filters.yearMax) params.set('primary_release_date.lte', `${filters.yearMax}-12-31`);
+    if (filters.genreIds && filters.genreIds.length > 0) params.set('with_genres', filters.genreIds.join(','));
+    if (filters.language)  params.set('with_original_language', filters.language);
+    if (filters.minRating && filters.minRating > 0) params.set('vote_average.gte', filters.minRating);
+
+    return params.toString();
+}
+
+/**
+ * Returns true if the filters object contains at least one active filter,
+ * meaning we should use /discover/movie instead of /movie/popular.
+ */
+function hasActiveFilters(filters) {
+    if (!filters) return false;
+    return (
+        filters.yearMin ||
+        filters.yearMax ||
+        (filters.genreIds && filters.genreIds.length > 0) ||
+        filters.language ||
+        (filters.minRating && filters.minRating > 0) ||
+        (filters.sortBy && filters.sortBy !== 'popularity.desc')
+    );
+}
+
+/**
+ * Fetches `count` random movies, respecting any active filters.
+ *
+ * Without filters:  picks a random page from /movie/popular (pages 1–5).
+ * With filters:     uses /discover/movie with a random page (1–10) so
+ *                   results vary across sessions within the filtered pool.
+ *
+ * @param {number} count   - How many movies to return (usually 1 or 2).
+ * @param {object} filters - Active filter state from game.js (may be null).
+ */
+export async function getRandomMovies(count = 2, filters = null) {
+    let data;
+
+    if (hasActiveFilters(filters)) {
+        // ── Filtered path: use /discover/movie ───────────────────────────
+        // Randomise across up to 10 pages of results so repeated redraws
+        // don't always return the same films.
+        const randomPage = Math.floor(Math.random() * 10) + 1;
+        const queryString = buildDiscoverParams(filters, randomPage);
+        data = await fetchFromProxy(`/discover/movie?${queryString}`);
+    } else {
+        // ── Default path: top popular movies, pages 1–5 ──────────────────
+        const randomPage = Math.floor(Math.random() * 5) + 1;
+        data = await fetchFromProxy(`/movie/popular?page=${randomPage}`);
+    }
+
     if (!data || !data.results) return [];
 
     const shuffled = data.results.sort(() => 0.5 - Math.random());
@@ -49,10 +140,12 @@ export async function getRandomMovies(count = 2) {
     }));
 }
 
+// ─────────────────────────────────────────────────────────────────────────────
+// CAST & FILMOGRAPHY
+// ─────────────────────────────────────────────────────────────────────────────
+
 /**
- * Fetches the cast for a specific movie ID.
- * Returns up to 20 billed cast members (up from 15) to give players
- * more connection options per film.
+ * Fetches up to 20 billed cast members for a given movie ID.
  */
 export async function getMovieCast(movieId) {
     const data = await fetchFromProxy(`/movie/${movieId}/credits`);
@@ -67,23 +160,18 @@ export async function getMovieCast(movieId) {
 }
 
 /**
- * Fetches the FULL filmography for a specific person ID.
- * FIX #2: Merges both the 'cast' array (acting roles) and the 'crew' array
- * (directing, producing, writing, etc.) from TMDb, then deduplicates
- * by movie ID so the same film doesn't appear twice. Sorted by
- * popularity descending so the most recognizable titles appear first.
- * (Previously only read data.cast and capped at 15 items.)
+ * Fetches the full filmography for a person — acting AND crew credits merged,
+ * deduplicated by movie ID, sorted by popularity descending.
  */
 export async function getPersonMovies(personId) {
     const data = await fetchFromProxy(`/person/${personId}/movie_credits`);
     if (!data) return [];
 
-    // Combine acting credits and crew credits into one pool
     const castCredits = data.cast || [];
     const crewCredits = data.crew || [];
-    const allCredits = [...castCredits, ...crewCredits];
+    const allCredits  = [...castCredits, ...crewCredits];
 
-    // Deduplicate by movie ID — a person can appear as both actor and director
+    // Deduplicate — a person can appear as both actor and director
     const seen = new Set();
     const uniqueMovies = allCredits.filter(movie => {
         if (seen.has(movie.id)) return false;
@@ -91,7 +179,6 @@ export async function getPersonMovies(personId) {
         return true;
     });
 
-    // Sort by TMDb popularity score so well-known films bubble to the top
     uniqueMovies.sort((a, b) => b.popularity - a.popularity);
 
     return uniqueMovies.map(movie => ({
